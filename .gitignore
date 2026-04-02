@@ -1,0 +1,5 @@
+# uv specific
+.venv/
+
+# Python artifacts
+__pycache__/
