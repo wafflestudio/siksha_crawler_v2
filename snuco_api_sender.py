@@ -43,12 +43,14 @@ def clean_menu_name(text):
     return text.strip()
 
 def is_valid_meal(text):
+    # 🚨 버거운버거 하단 안내문구 필터링 추가
     exclude_keywords = [
         "휴무", "휴점", "폐점", "휴업", "휴관", 
         "운영", "시간", "제공", "배식시간", "혼잡시간", 
         "브레이크", "break", "오전", "오후", "평일", "토요일", 
         "TakeOut", "TAKE", "결제", "문의", "학기중", "하계방학",
-        "대학원생", "준비수량", "특성상", "조기품절", "가능성이", "양해"
+        "대학원생", "준비수량", "특성상", "조기품절", "가능성이", "양해",
+        "메뉴외에도", "다양한 메뉴가" 
     ]
     text_lower = text.lower()
     for keyword in exclude_keywords:
@@ -78,7 +80,7 @@ def crawl_snuco_menu():
             continue
             
         raw_restaurant_name = tds[0].text.strip()
-        restaurant_name = re.sub(r'\(.*?\)', '', raw_restaurant_name).strip()
+        restaurant_name = re.sub(r'\(.*?\)', '', raw_restaurant_name).replace('*', '').strip()
         
         if restaurant_name not in result:
             result[restaurant_name] = {today: {"아침": [], "점심": [], "저녁": []}}
@@ -115,13 +117,23 @@ def crawl_snuco_menu():
                 if not is_valid_meal(menu_text):
                     continue
                     
+                # 🚨 버거운버거 특화 전처리 (이중 가격 및 옵션 분리)
+                if "버거운버거" in restaurant_name:
+                    # "/ 6,800원" -> "(세트 6,800원)"
+                    menu_text = re.sub(r'/\s*([0-9,]{3,})원?', r'(세트 \1원)', menu_text)
+                    # "/ 매운맛 변경 +300원" -> "(매운맛 변경 +300원)"
+                    menu_text = re.sub(r'/\s*([가-힣\s]+변경)\s*\+?\s*([0-9,]+)원?', r'(\1 +\2원)', menu_text)
+
                 price = None
+                
+                # 정규식: '원'이 명시되거나, 1000단위 콤마가 있거나, 1000이상의 숫자
                 price_match = re.search(r'([1-9]\d{0,2}(?:[,.]\d{3})*|\d+)\s*원', menu_text)
                 if not price_match:
-                    price_match = re.search(r'(?<!\d)([1-9]\d*00)(?!\d)', menu_text)
+                    price_match = re.search(r'(?<![\d,])([1-9]\d{0,2},\d{3}|[1-9]\d{2,}00)(?![\d,])', menu_text)
 
                 if price_match:
-                    price = int(re.sub(r'\D', '', price_match.group(1)))
+                    price_str = price_match.group(1)
+                    price = int(re.sub(r'\D', '', price_str))
                     menu_text = menu_text.replace(price_match.group(0), "").strip()
                 
                 clean_for_corner = menu_text.strip()
@@ -160,7 +172,8 @@ def crawl_snuco_menu():
                     continue
                     
                 menu_text = clean_menu_name(menu_text)
-                menu_text = re.sub(r'[:\-ㅁ\(\)]+$', '', menu_text).strip()
+                # 🚨 꼬리 특수문자 제거 시 괄호()는 살리도록 수정 (세트 메뉴 표기 보호)
+                menu_text = re.sub(r'[:\-ㅁ\/]+$', '', menu_text).strip()
                 
                 if menu_text:
                     if is_buffet_mode:
@@ -189,53 +202,77 @@ def crawl_snuco_menu():
     return result
 
 # ==========================================
-# 3. API 전송 로직 (인증 포함)
+# 3. API 전송 로직 (독립 메뉴 분리 로직 적용)
 # ==========================================
 def send_to_api(crawled_data: dict):
-    # TODO 1: 실제 백엔드 API 엔드포인트로 변경
-    api_url = "https://api.siksha.com/v2/menus" 
+    api_url = "https://siksha-server-dev.wafflestudio.com/crawler/meals" 
+
+    # 이 부분에 발급받은(사용가능한) 액세스 토큰(JWT)을 넣어야 서버로 보내지는 요청이 인증을 통과합니다.
+    api_token = ""
     
-    # TODO 2: 발급받은 실제 API 키나 JWT 토큰으로 변경
-    # 보안을 위해 환경변수(os.environ.get)를 사용하는 것이 좋지만, 우선 문자열로 하드코딩해 두었습니다.
-    api_token = os.environ.get("SIKSHA_API_TOKEN", "your_secret_jwt_token_here")
-    
-    # HTTP 헤더 설정 (JSON 형식 명시 및 인증 토큰 포함)
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_token}" # Bearer 방식이 아니면 "x-api-key": api_token 등으로 수정
+        "Authorization": f"Bearer {api_token}"
+    }
+    
+    meal_type_map = {
+        "아침": "BREAKFAST",
+        "점심": "LUNCH",
+        "저녁": "DINNER"
     }
     
     for restaurant_name, dates in crawled_data.items():
-        for date, meals in dates.items():
-            
-            payload_obj = DailyMenuPayload(
-                restaurant_name=restaurant_name,
-                date=date,
-                breakfast=meals.get("아침", []),
-                lunch=meals.get("점심", []),
-                dinner=meals.get("저녁", [])
-            )
-            
-            payload_json = asdict(payload_obj)
-            
-            print(f"🚀 [{restaurant_name} / {date}] 데이터 전송 중...")
-            
-            # API 전송 시뮬레이션 (현재는 서버가 없으므로 프린트만 하고 실제 요청은 주석 처리)
-            # 나중에 주석(#)을 풀고 실행하시면 됩니다.
-            
-            '''
-            try:
-                # timeout=5 는 5초 이상 응답이 없으면 멈추게 하여 무한 대기를 방지합니다.
-                response = requests.post(api_url, json=payload_json, headers=headers, timeout=5)
+        # 기숙사식당 덮어쓰기 로직
+        final_restaurant_name = "생협기숙사(919동)" if restaurant_name == "기숙사식당" else restaurant_name
+        
+        for date, meals_by_time in dates.items():
+            for meal_time_kr, meal_groups in meals_by_time.items():
+                if not meal_groups:
+                    continue 
+                    
+                meal_type_en = meal_type_map[meal_time_kr]
+                dto_meals = []
                 
-                # HTTP 상태 코드가 200번대(성공)가 아니면 에러를 발생시킵니다.
-                response.raise_for_status() 
+                for group in meal_groups:
+                    current_dto_meal = {"price": None, "noMeat": False, "menus": []}
+                    
+                    for menu_item in group.get("메뉴", []):
+                        names = menu_item["이름"] if isinstance(menu_item["이름"], list) else [menu_item["이름"]]
+                        item_price = menu_item.get("가격")
+                        
+                        # 독립된 메뉴 분리 로직
+                        if item_price is not None and current_dto_meal["price"] is not None:
+                            dto_meals.append(current_dto_meal)
+                            current_dto_meal = {"price": item_price, "noMeat": False, "menus": []}
+                        
+                        if item_price is not None and current_dto_meal["price"] is None:
+                            current_dto_meal["price"] = item_price
+                            
+                        current_dto_meal["menus"].extend(names)
+                        
+                    if current_dto_meal["menus"]:
+                        dto_meals.append(current_dto_meal)
                 
-                print(f"  ✅ 전송 성공: {response.status_code}")
+                if not dto_meals:
+                    continue
+                    
+                payload = {
+                    "restaurant": final_restaurant_name,
+                    "date": date,
+                    "type": meal_type_en,
+                    "meals": dto_meals
+                }
                 
-            except requests.exceptions.RequestException as e:
-                print(f"  ❌ 전송 실패: {e}")
-            '''
+                print(f"🚀 [{final_restaurant_name} / {date} / {meal_type_en}] 데이터 전송 중...")
+                
+                try:
+                    response = requests.post(api_url, json=payload, headers=headers, timeout=5)
+                    response.raise_for_status() 
+                    print(f"  ✅ 전송 성공: {response.status_code}")
+                except requests.exceptions.RequestException as e:
+                    print(f"  ❌ 전송 실패: {e}")
+                    if e.response is not None:
+                        print(f"     응답 내용: {e.response.text}")
 
 if __name__ == "__main__":
     print("🍽️ 식단 크롤링을 시작합니다...")
