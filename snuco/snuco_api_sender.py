@@ -43,14 +43,12 @@ def clean_menu_name(text):
     return text.strip()
 
 def is_valid_meal(text):
-    # 🚨 버거운버거 하단 안내문구 필터링 추가
     exclude_keywords = [
         "휴무", "휴점", "폐점", "휴업", "휴관", 
         "운영", "시간", "제공", "배식시간", "혼잡시간", 
         "브레이크", "break", "오전", "오후", "평일", "토요일", 
         "TakeOut", "TAKE", "결제", "문의", "학기중", "하계방학",
-        "대학원생", "준비수량", "특성상", "조기품절", "가능성이", "양해",
-        "메뉴외에도", "다양한 메뉴가" 
+        "대학원생", "준비수량", "특성상", "조기품절", "가능성이", "양해"
     ]
     text_lower = text.lower()
     for keyword in exclude_keywords:
@@ -81,6 +79,10 @@ def crawl_snuco_menu():
             
         raw_restaurant_name = tds[0].text.strip()
         restaurant_name = re.sub(r'\(.*?\)', '', raw_restaurant_name).replace('*', '').strip()
+        
+        # 🚨 기숙사식당 및 버거운버거 제외
+        if restaurant_name in ["기숙사식당", "버거운버거"]:
+            continue
         
         if restaurant_name not in result:
             result[restaurant_name] = {today: {"아침": [], "점심": [], "저녁": []}}
@@ -117,16 +119,8 @@ def crawl_snuco_menu():
                 if not is_valid_meal(menu_text):
                     continue
                     
-                # 🚨 버거운버거 특화 전처리 (이중 가격 및 옵션 분리)
-                if "버거운버거" in restaurant_name:
-                    # "/ 6,800원" -> "(세트 6,800원)"
-                    menu_text = re.sub(r'/\s*([0-9,]{3,})원?', r'(세트 \1원)', menu_text)
-                    # "/ 매운맛 변경 +300원" -> "(매운맛 변경 +300원)"
-                    menu_text = re.sub(r'/\s*([가-힣\s]+변경)\s*\+?\s*([0-9,]+)원?', r'(\1 +\2원)', menu_text)
-
                 price = None
                 
-                # 정규식: '원'이 명시되거나, 1000단위 콤마가 있거나, 1000이상의 숫자
                 price_match = re.search(r'([1-9]\d{0,2}(?:[,.]\d{3})*|\d+)\s*원', menu_text)
                 if not price_match:
                     price_match = re.search(r'(?<![\d,])([1-9]\d{0,2},\d{3}|[1-9]\d{2,}00)(?![\d,])', menu_text)
@@ -172,7 +166,6 @@ def crawl_snuco_menu():
                     continue
                     
                 menu_text = clean_menu_name(menu_text)
-                # 🚨 꼬리 특수문자 제거 시 괄호()는 살리도록 수정 (세트 메뉴 표기 보호)
                 menu_text = re.sub(r'[:\-ㅁ\/]+$', '', menu_text).strip()
                 
                 if menu_text:
@@ -202,17 +195,20 @@ def crawl_snuco_menu():
     return result
 
 # ==========================================
-# 3. API 전송 로직 (독립 메뉴 분리 로직 적용)
+# 3. API 전송 로직 (맞춤형 문자열 분리/교정 적용)
 # ==========================================
 def send_to_api(crawled_data: dict):
     api_url = "https://siksha-server-dev.wafflestudio.com/crawler/meals" 
 
-    # 이 부분에 발급받은(사용가능한) 액세스 토큰(JWT)을 넣어야 서버로 보내지는 요청이 인증을 통과합니다.
-    api_token = ""
+    api_key = os.getenv("CRAWLER_API_KEY")
+
+    if not api_key:
+        print("🛑 오류: CRAWLER_API_KEY 환경 변수가 설정되지 않았습니다!")
+        return
     
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_token}"
+        "X-API-Key": api_key  
     }
     
     meal_type_map = {
@@ -222,9 +218,6 @@ def send_to_api(crawled_data: dict):
     }
     
     for restaurant_name, dates in crawled_data.items():
-        # 기숙사식당 덮어쓰기 로직
-        final_restaurant_name = "생협기숙사(919동)" if restaurant_name == "기숙사식당" else restaurant_name
-        
         for date, meals_by_time in dates.items():
             for meal_time_kr, meal_groups in meals_by_time.items():
                 if not meal_groups:
@@ -240,7 +233,24 @@ def send_to_api(crawled_data: dict):
                         names = menu_item["이름"] if isinstance(menu_item["이름"], list) else [menu_item["이름"]]
                         item_price = menu_item.get("가격")
                         
-                        # 독립된 메뉴 분리 로직
+                        parsed_names_all = []
+                        for name_text in names:
+                            # 🚨 1. 공대간이식당 호구세트 가격 하드코딩 복구
+                            if "호구세트" in name_text:
+                                name_text = "호구세트"
+                                item_price = 8300
+                            
+                            # 🚨 2. 예술계식당의 <A코너> 같은 불필요한 태그 제거
+                            name_text = re.sub(r'<[A-Za-z가-힣0-9]+코너>', '', name_text)
+                            
+                            # 🚨 3. 220동식당의 불필요한 "세트" 꼬리 자르기
+                            name_text = name_text.replace("제육한접시 세트", "제육한접시").replace("제육한접시세트", "제육한접시")
+                            name_text = name_text.replace("고기한접시 세트", "고기한접시").replace("고기한접시세트", "고기한접시")
+                            
+                            # 🚨 4. &, 콤마(,), +, _ 를 기준으로 메뉴들을 모두 예쁘게 쪼개기
+                            parsed = [n.strip() for n in re.split(r'[&,\+_]', name_text) if n.strip()]
+                            parsed_names_all.extend(parsed)
+                        
                         if item_price is not None and current_dto_meal["price"] is not None:
                             dto_meals.append(current_dto_meal)
                             current_dto_meal = {"price": item_price, "noMeat": False, "menus": []}
@@ -248,7 +258,8 @@ def send_to_api(crawled_data: dict):
                         if item_price is not None and current_dto_meal["price"] is None:
                             current_dto_meal["price"] = item_price
                             
-                        current_dto_meal["menus"].extend(names)
+                        # 쪼개진 모든 배열을 추가
+                        current_dto_meal["menus"].extend(parsed_names_all)
                         
                     if current_dto_meal["menus"]:
                         dto_meals.append(current_dto_meal)
@@ -257,13 +268,13 @@ def send_to_api(crawled_data: dict):
                     continue
                     
                 payload = {
-                    "restaurant": final_restaurant_name,
+                    "restaurant": restaurant_name,
                     "date": date,
                     "type": meal_type_en,
                     "meals": dto_meals
                 }
                 
-                print(f"🚀 [{final_restaurant_name} / {date} / {meal_type_en}] 데이터 전송 중...")
+                print(f"🚀 [{restaurant_name} / {date} / {meal_type_en}] 데이터 전송 중...")
                 
                 try:
                     response = requests.post(api_url, json=payload, headers=headers, timeout=5)
