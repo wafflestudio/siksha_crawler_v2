@@ -26,14 +26,17 @@ jobs:
     - name: 🍽️ 학생회관 크롤러 실행
       env:
         CRAWLER_API_KEY: ${{ secrets.CRAWLER_API_KEY }}
-      run: python snuco_api_sender.py
+      # 🚨 실행 경로를 snuco 폴더 안으로 지정!
+      run: python snuco/snuco_api_sender.py
 
     - name: 🍽️ 기숙사 식당 크롤러 실행
       env:
         CRAWLER_API_KEY: ${{ secrets.CRAWLER_API_KEY }}
-      run: python snudorm_api_sender.py
+      # 🚨 실행 경로를 snudorm 폴더 안으로 지정!
+      run: python snudorm/snudorm_api_sender.py
 
     - name: 🍽️ 수의대 식당 크롤러 실행
       env:
         CRAWLER_API_KEY: ${{ secrets.CRAWLER_API_KEY }}
-      run: python vet_api_sender.py
+      # 🚨 실행 경로를 vet 폴더 안으로 지정!
+      run: python vet/vet_api_sender.py
