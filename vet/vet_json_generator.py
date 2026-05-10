@@ -22,9 +22,6 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 VET_URL = "https://vet.snu.ac.kr/cafe_menu/"
 
-# ==========================================
-# 1. 크롤링 및 파싱 로직 (휴무일 스킵 적용)
-# ==========================================
 class Fetcher:
     @staticmethod
     def fetch(url: str) -> BeautifulSoup:
@@ -84,7 +81,7 @@ class VetExtractor:
         result = {"수의대식당": {}}
         
         for date_str, lunch_menu in lunches.items():
-            # 🚨 점심 메뉴에 '휴무'가 포함되어 있다면 해당 날짜 전체 스킵
+            # 🚨 1. 점심 메뉴 텍스트에 '휴무'가 포함되어 있다면 해당 날짜는 통째로 스킵!
             if "휴무" in lunch_menu:
                 continue
                 
@@ -98,7 +95,7 @@ class VetExtractor:
                 "저녁": []
             }
             
-            # 🚨 저녁 메뉴도 '휴무'가 아닐 때만 추가
+            # 🚨 2. 저녁 메뉴 역시 '휴무'가 아닐 때만 정상 추가
             if dinner and "휴무" not in dinner:
                 daily_meals["저녁"].append({
                     "메뉴": [{"이름": dinner, "가격": None}]
@@ -109,28 +106,16 @@ class VetExtractor:
         return result
 
 # ==========================================
-# 2. API 전송 로직 (올바른 DTO 형식 & API Key 적용)
+# 2. JSON 파일 저장 로직
 # ==========================================
-def send_to_api(crawled_data: dict):
-    api_url = "https://siksha-server-dev.wafflestudio.com/crawler/meals" 
-    
-    # 서버 환경변수에서 CRAWLER_API_KEY 읽어오기
-    api_key = os.getenv("CRAWLER_API_KEY")
-
-    if not api_key:
-        print("🛑 오류: CRAWLER_API_KEY 환경 변수가 설정되지 않았습니다!")
-        return
-    
-    headers = {
-        "Content-Type": "application/json",
-        "X-API-Key": api_key  
-    }
-    
+def save_to_json(crawled_data: dict, filename="vet_payload.json"):
     meal_type_map = {
         "아침": "BREAKFAST",
         "점심": "LUNCH",
         "저녁": "DINNER"
     }
+
+    all_payloads = []
 
     for restaurant_name, dates in crawled_data.items():
         for date, meals_by_time in dates.items():
@@ -141,7 +126,6 @@ def send_to_api(crawled_data: dict):
                 meal_type_en = meal_type_map[meal_time_kr]
                 dto_meals = []
                 
-                # 각 세트 메뉴를 서버 DTO(MealItem) 형식으로 변환
                 for group in meal_groups:
                     menus = []
                     price = None
@@ -164,24 +148,17 @@ def send_to_api(crawled_data: dict):
                 if not dto_meals:
                     continue
                 
-                # 최종 페이로드 구성
                 payload = {
                     "restaurant": restaurant_name,
                     "date": date,
                     "type": meal_type_en,
                     "meals": dto_meals
                 }
+                all_payloads.append(payload)
                 
-                print(f"🚀 [{restaurant_name} / {date} / {meal_type_en}] 데이터 전송 중...")
-                
-                try:
-                    response = requests.post(api_url, json=payload, headers=headers, timeout=5)
-                    response.raise_for_status() 
-                    print(f"  ✅ 전송 성공: {response.status_code}")
-                except requests.exceptions.RequestException as e:
-                    print(f"  ❌ 전송 실패: {e}")
-                    if e.response is not None:
-                        print(f"     응답 내용: {e.response.text}")
+    with open(filename, 'w', encoding='utf-8') as f:
+        json.dump(all_payloads, f, ensure_ascii=False, indent=2)
+    print(f"📁 파싱된 데이터가 '{filename}'에 성공적으로 저장되었습니다!")
 
 if __name__ == "__main__":
     print("🍽️ 수의대 식단 크롤링을 시작합니다...")
@@ -190,8 +167,8 @@ if __name__ == "__main__":
         soup = Fetcher.fetch(VET_URL)
         crawled_data = VetExtractor(soup).extract()
         
-        print("📡 크롤링 완료! 백엔드 API로 전송을 시작합니다...")
-        send_to_api(crawled_data)
+        print("📡 크롤링 완료! JSON 파일 변환을 시작합니다...")
+        save_to_json(crawled_data)
         
         print("🎉 모든 작업이 완료되었습니다!")
         
