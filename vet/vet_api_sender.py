@@ -10,13 +10,18 @@
 import json
 import re
 import os
+import sys
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import List, Dict, Any
 
 import requests
 import urllib3
 from bs4 import BeautifulSoup
 import pytz
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+from sync_state import plan_sync
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -132,12 +137,11 @@ def send_to_api(crawled_data: dict):
         "저녁": "DINNER"
     }
 
+    all_payloads = []
+
     for restaurant_name, dates in crawled_data.items():
         for date, meals_by_time in dates.items():
             for meal_time_kr, meal_groups in meals_by_time.items():
-                if not meal_groups:
-                    continue
-                    
                 meal_type_en = meal_type_map[meal_time_kr]
                 dto_meals = []
                 
@@ -161,9 +165,6 @@ def send_to_api(crawled_data: dict):
                             "menus": menus
                         })
                 
-                if not dto_meals:
-                    continue
-                
                 # 최종 페이로드 구성
                 payload = {
                     "restaurant": restaurant_name,
@@ -171,17 +172,29 @@ def send_to_api(crawled_data: dict):
                     "type": meal_type_en,
                     "meals": dto_meals
                 }
-                
-                print(f"🚀 [{restaurant_name} / {date} / {meal_type_en}] 데이터 전송 중...")
-                
-                try:
-                    response = requests.post(api_url, json=payload, headers=headers, timeout=5)
-                    response.raise_for_status() 
-                    print(f"  ✅ 전송 성공: {response.status_code}")
-                except requests.exceptions.RequestException as e:
-                    print(f"  ❌ 전송 실패: {e}")
-                    if e.response is not None:
-                        print(f"     응답 내용: {e.response.text}")
+                all_payloads.append(payload)
+
+    payloads_to_send, stats = plan_sync("vet", all_payloads)
+    print(
+        f"📊 동기화 대상: 전체 {stats['current']}건 / 변경 {stats['changed']}건 / "
+        f"삭제 {stats['deleted']}건 / 유지 {stats['unchanged']}건"
+    )
+
+    for payload in payloads_to_send:
+        restaurant_name = payload["restaurant"]
+        date = payload["date"]
+        meal_type_en = payload["type"]
+
+        print(f"🚀 [{restaurant_name} / {date} / {meal_type_en}] 데이터 전송 중...")
+
+        try:
+            response = requests.post(api_url, json=payload, headers=headers, timeout=5)
+            response.raise_for_status()
+            print(f"  ✅ 전송 성공: {response.status_code}")
+        except requests.exceptions.RequestException as e:
+            print(f"  ❌ 전송 실패: {e}")
+            if e.response is not None:
+                print(f"     응답 내용: {e.response.text}")
 
 if __name__ == "__main__":
     print("🍽️ 수의대 식단 크롤링을 시작합니다...")
