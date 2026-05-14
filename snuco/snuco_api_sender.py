@@ -276,13 +276,13 @@ def send_to_api(crawled_data: dict):
                 }
                 all_payloads.append(payload)
 
-    payloads_to_send, previous_state, new_state, stats = plan_sync("snuco", all_payloads)
+    payloads_to_send, _, new_state, stats = plan_sync("snuco", all_payloads)
     print(
         f"📊 동기화 대상: 전체 {stats['current']}건 / 변경 {stats['changed']}건 / "
         f"삭제 {stats['deleted']}건 / 유지 {stats['unchanged']}건"
     )
 
-    failed_keys = set()
+    sent_keys = set()
     for payload in payloads_to_send:
         restaurant_name = payload["restaurant"]
         date = payload["date"]
@@ -293,21 +293,21 @@ def send_to_api(crawled_data: dict):
         try:
             response = requests.post(api_url, json=payload, headers=headers, timeout=5)
             response.raise_for_status()
+            sent_keys.add(payload_key(payload))
             print(f"  ✅ 전송 성공: {response.status_code}")
         except requests.exceptions.RequestException as e:
             print(f"  ❌ 전송 실패: {e}")
             if e.response is not None:
                 print(f"     응답 내용: {e.response.text}")
-            failed_keys.add(payload_key(payload))
 
-    # Save state only for successfully sent payloads; revert failed entries to
-    # their previous values so they will be retried on the next run.
-    committed_state = dict(new_state)
-    for key in failed_keys:
-        if key in previous_state:
-            committed_state[key] = previous_state[key]
-        else:
-            committed_state.pop(key, None)
+    # Persist state only for entries that were either unchanged (not in
+    # payloads_to_send) or successfully sent, so any failed send is retried
+    # on the next run.
+    send_keys = {payload_key(p) for p in payloads_to_send}
+    committed_state = {k: v for k, v in new_state.items() if k not in send_keys}
+    for key in sent_keys:
+        if key in new_state:
+            committed_state[key] = new_state[key]
     save_state("snuco", committed_state)
 
 if __name__ == "__main__":
