@@ -56,6 +56,41 @@ def is_valid_meal(text):
             return False
     return True
 
+OR_OPTION_SEPARATOR_RE = re.compile(r'\s*(?<![A-Za-z])OR(?![A-Za-z])\s*')
+
+def split_301_or_option_meals(dto_meals):
+    expanded_meals = []
+    for meal in dto_meals:
+        option_sets = [[]]
+        has_or_option = False
+
+        for menu in meal.get("menus", []):
+            options = [part.strip() for part in OR_OPTION_SEPARATOR_RE.split(menu) if part.strip()]
+            if len(options) <= 1:
+                for option_set in option_sets:
+                    option_set.append(menu)
+                continue
+
+            has_or_option = True
+            next_option_sets = []
+            for option_set in option_sets:
+                for option in options:
+                    next_option_sets.append(option_set + [option])
+            option_sets = next_option_sets
+
+        if has_or_option:
+            for menus in option_sets:
+                expanded_meals.append({
+                    "price": meal["price"],
+                    "noMeat": meal["noMeat"],
+                    "menus": menus
+                })
+            continue
+
+        expanded_meals.append(meal)
+
+    return expanded_meals
+
 def crawl_snuco_menu():
     url = "https://snuco.snu.ac.kr/foodmenu/"
     tz = pytz.timezone('Asia/Seoul')
@@ -236,8 +271,8 @@ def save_to_json(crawled_data: dict, filename="snuco_payload.json"):
                             name_text = name_text.replace("제육한접시 세트", "제육한접시").replace("제육한접시세트", "제육한접시")
                             name_text = name_text.replace("고기한접시 세트", "고기한접시").replace("고기한접시세트", "고기한접시")
                             
-                            # 🚨 4. &, 콤마(,), +, _ 를 기준으로 메뉴들을 모두 예쁘게 쪼개기
-                            parsed = [n.strip() for n in re.split(r'[&,\+_]', name_text) if n.strip()]
+                            # 🚨 4. &, 콤마(,), +, _, * 를 기준으로 메뉴들을 모두 예쁘게 쪼개기
+                            parsed = [n.strip() for n in re.split(r'[&,\+_\*]', name_text) if n.strip()]
                             parsed_names_all.extend(parsed)
                         
                         if item_price is not None and current_dto_meal["price"] is not None:
@@ -252,6 +287,9 @@ def save_to_json(crawled_data: dict, filename="snuco_payload.json"):
                         
                     if current_dto_meal["menus"]:
                         dto_meals.append(current_dto_meal)
+
+                if restaurant_name == "301동식당":
+                    dto_meals = split_301_or_option_meals(dto_meals)
                 
                 if not dto_meals:
                     continue
