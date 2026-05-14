@@ -303,8 +303,8 @@ def send_to_api(crawled_data: dict):
     # Persist state only for entries that were either unchanged (not in
     # payloads_to_send) or successfully sent, so any failed send is retried
     # on the next run.
-    send_keys = {payload_key(p) for p in payloads_to_send}
-    committed_state = {k: v for k, v in new_state.items() if k not in send_keys}
+    scheduled_keys = {payload_key(p) for p in payloads_to_send}
+    committed_state = {k: v for k, v in new_state.items() if k not in scheduled_keys}
     for key in sent_keys:
         if key in new_state:
             committed_state[key] = new_state[key]
