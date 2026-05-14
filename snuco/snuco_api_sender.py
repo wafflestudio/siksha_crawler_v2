@@ -21,7 +21,7 @@ from bs4 import BeautifulSoup
 import pytz
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from sync_state import plan_sync
+from sync_state import plan_sync, payload_key, save_state
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -276,12 +276,13 @@ def send_to_api(crawled_data: dict):
                 }
                 all_payloads.append(payload)
 
-    payloads_to_send, stats = plan_sync("snuco", all_payloads)
+    payloads_to_send, previous_state, new_state, stats = plan_sync("snuco", all_payloads)
     print(
         f"📊 동기화 대상: 전체 {stats['current']}건 / 변경 {stats['changed']}건 / "
         f"삭제 {stats['deleted']}건 / 유지 {stats['unchanged']}건"
     )
 
+    failed_keys = set()
     for payload in payloads_to_send:
         restaurant_name = payload["restaurant"]
         date = payload["date"]
@@ -297,6 +298,17 @@ def send_to_api(crawled_data: dict):
             print(f"  ❌ 전송 실패: {e}")
             if e.response is not None:
                 print(f"     응답 내용: {e.response.text}")
+            failed_keys.add(payload_key(payload))
+
+    # Save state only for successfully sent payloads; revert failed entries to
+    # their previous values so they will be retried on the next run.
+    committed_state = dict(new_state)
+    for key in failed_keys:
+        if key in previous_state:
+            committed_state[key] = previous_state[key]
+        else:
+            committed_state.pop(key, None)
+    save_state("snuco", committed_state)
 
 if __name__ == "__main__":
     print("🍽️ 식단 크롤링을 시작합니다...")

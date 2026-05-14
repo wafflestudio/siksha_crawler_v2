@@ -24,7 +24,6 @@ import urllib3
 import pytz
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from sync_state import plan_sync
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -259,14 +258,8 @@ def save_to_json(crawled_data: dict, filename="snudorm_payload.json"):
                 }
                 all_payloads.append(payload)
 
-    payloads_to_save, stats = plan_sync("snudorm", all_payloads)
-    print(
-        f"📊 JSON 동기화 대상: 전체 {stats['current']}건 / 변경 {stats['changed']}건 / "
-        f"삭제 {stats['deleted']}건 / 유지 {stats['unchanged']}건"
-    )
-                
     with open(filename, 'w', encoding='utf-8') as f:
-        json.dump(payloads_to_save, f, ensure_ascii=False, indent=2)
+        json.dump(all_payloads, f, ensure_ascii=False, indent=2)
     print(f"📁 파싱된 데이터가 '{filename}'에 성공적으로 저장되었습니다!")
 
 

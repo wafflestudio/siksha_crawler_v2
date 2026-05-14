@@ -16,6 +16,15 @@ def _meals_digest(meals: List[Dict[str, Any]]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def payload_key(payload: Dict[str, Any]) -> str:
+    """Return the state-tracking key for a given payload."""
+    return _meta_key({
+        "restaurant": payload["restaurant"],
+        "date": payload["date"],
+        "type": payload["type"],
+    })
+
+
 def load_state(source: str) -> Dict[str, str]:
     path = STATE_DIR / f"{source}.json"
     if not path.exists():
@@ -40,18 +49,20 @@ def save_state(source: str, state: Dict[str, str]) -> None:
 def plan_sync(
     source: str,
     current_payloads: List[Dict[str, Any]],
-) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
+) -> Tuple[List[Dict[str, Any]], Dict[str, str], Dict[str, str], Dict[str, int]]:
+    """Compute which payloads differ from the previously saved state.
+
+    Returns ``(to_send, previous_state, new_state, stats)``.  State is **not**
+    persisted here.  The caller must call ``save_state(source, committed_state)``
+    after processing the returned payloads, omitting keys for any sends that
+    failed so that those entries are retried on the next run.
+    """
     previous_state = load_state(source)
     current_state: Dict[str, str] = {}
     to_send: List[Dict[str, Any]] = []
 
     for payload in current_payloads:
-        meta = {
-            "restaurant": payload["restaurant"],
-            "date": payload["date"],
-            "type": payload["type"],
-        }
-        key = _meta_key(meta)
+        key = payload_key(payload)
         digest = _meals_digest(payload.get("meals", []))
 
         current_state[key] = digest
@@ -70,11 +81,10 @@ def plan_sync(
             }
         )
 
-    save_state(source, current_state)
     stats = {
         "current": len(current_payloads),
         "changed": len(to_send),
         "unchanged": len(current_payloads) - (len(to_send) - len(deleted_keys)),
         "deleted": len(deleted_keys),
     }
-    return to_send, stats
+    return to_send, previous_state, current_state, stats
