@@ -30,8 +30,12 @@ SECTION_END_MARKER = "개인정보처리방침"
 CAFETERIA_RE = re.compile(r"^(?P<name>.+?\(\d+동\))\s*(?P<rest>.*)$")
 TIME_RE = re.compile(r"※\s*운영시간\s*:\s*(\d{2}:\d{2}~\d{2}:\d{2})")
 PRICE_RE = re.compile(r"^(?P<menu>.+?)\s*:\s*(?P<price>[\d,]+원)$")
+MENU_NAME_SPLIT_RE = re.compile(r"\s*[,/&*]\s*")
 SECTION_MARKERS = ("식단 안내", "오늘의 식단")
 HEADER_TOKENS = ("식당", "아침", "점심", "저녁")
+EXCLUDED_MENU_NAMES_BY_CONTEXT = {
+    ("아워홈(901동)", "아침"): {"세미양식부페"},
+}
 BLOCK_TAGS = {
     "div", "p", "li", "ul", "ol", "section", "article",
     "table", "thead", "tbody", "tfoot", "tr", "td", "th",
@@ -198,6 +202,12 @@ def build_menu_json(url: str, html: str) -> dict[str, object]:
 
     return result
 
+def normalize_menu_names(name_text: str, restaurant_name: str, meal_time_kr: str) -> list[str]:
+    name_text = name_text.replace("(잇템)", "").replace("(#)", "").replace("[#]", "").strip()
+    parsed_names = [name.strip() for name in MENU_NAME_SPLIT_RE.split(name_text) if name.strip()]
+    excluded_names = EXCLUDED_MENU_NAMES_BY_CONTEXT.get((restaurant_name, meal_time_kr), set())
+    return [name for name in parsed_names if name not in excluded_names]
+
 # ==========================================
 # 2. JSON 파일 저장 로직 (문자열 파싱 고도화)
 # ==========================================
@@ -225,12 +235,7 @@ def save_to_json(crawled_data: dict, filename="snudorm_payload.json"):
                     for menu_item in group.get("메뉴", []):
                         name_text = menu_item["이름"]
                         item_price = menu_item.get("가격")
-                        
-                        # 🚨 불필요한 기호 제거
-                        name_text = name_text.replace("(잇템)", "").replace("(#)", "").replace("[#]", "").strip()
-                        
-                        # 🚨 쉼표(,) 와 앰퍼샌드(&)를 기준으로 문자열을 여러 개로 쪼갬
-                        parsed_names = [n.strip() for n in re.split(r'[,&]', name_text) if n.strip()]
+                        parsed_names = normalize_menu_names(name_text, restaurant_name, meal_time_kr)
                         
                         if item_price is not None and current_dto_meal["price"] is not None:
                             dto_meals.append(current_dto_meal)
@@ -239,7 +244,6 @@ def save_to_json(crawled_data: dict, filename="snudorm_payload.json"):
                         if item_price is not None and current_dto_meal["price"] is None:
                             current_dto_meal["price"] = item_price
                             
-                        # 🚨 쪼개진 메뉴들을 배열에 펼쳐서 넣음
                         current_dto_meal["menus"].extend(parsed_names)
                         
                     if current_dto_meal["menus"]:
