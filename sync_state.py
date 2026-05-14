@@ -69,17 +69,24 @@ def plan_sync(
         if previous_state.get(key) != digest:
             to_send.append(payload)
 
-    deleted_keys = set(previous_state.keys()) - set(current_state.keys())
-    for key in deleted_keys:
-        meta = json.loads(key)
-        to_send.append(
-            {
-                "restaurant": meta["restaurant"],
-                "date": meta["date"],
-                "type": meta["type"],
-                "meals": [],
-            }
-        )
+    # Only compute deletions when the current crawl produced at least one
+    # payload.  An empty result almost always means a parse failure (e.g. the
+    # source page changed its structure), not that every restaurant closed.
+    # Skipping deletions in that case prevents a transient scrape error from
+    # wiping all previously-known menus on the backend.
+    deleted_keys: set = set()
+    if current_payloads:
+        deleted_keys = set(previous_state.keys()) - set(current_state.keys())
+        for key in deleted_keys:
+            meta = json.loads(key)
+            to_send.append(
+                {
+                    "restaurant": meta["restaurant"],
+                    "date": meta["date"],
+                    "type": meta["type"],
+                    "meals": [],
+                }
+            )
 
     stats = {
         "current": len(current_payloads),
