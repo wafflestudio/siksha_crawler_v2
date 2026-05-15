@@ -10,13 +10,18 @@
 import json
 import re
 import os
+import sys
 from datetime import datetime
 from dataclasses import dataclass, asdict
+from pathlib import Path
 from typing import List, Dict, Any
 import requests
 import urllib3
 from bs4 import BeautifulSoup
 import pytz
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+from sync_state import plan_sync, payload_key, save_state
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -251,13 +256,12 @@ def send_to_api(crawled_data: dict):
         "점심": "LUNCH",
         "저녁": "DINNER"
     }
+
+    all_payloads = []
     
     for restaurant_name, dates in crawled_data.items():
         for date, meals_by_time in dates.items():
             for meal_time_kr, meal_groups in meals_by_time.items():
-                if not meal_groups:
-                    continue 
-                    
                 meal_type_en = meal_type_map[meal_time_kr]
                 dto_meals = []
                 
@@ -302,26 +306,47 @@ def send_to_api(crawled_data: dict):
                 if restaurant_name == "301동식당":
                     dto_meals = split_301_or_option_meals(dto_meals)
                 
-                if not dto_meals:
-                    continue
-                    
                 payload = {
                     "restaurant": restaurant_name,
                     "date": date,
                     "type": meal_type_en,
                     "meals": dto_meals
                 }
-                
-                print(f"🚀 [{restaurant_name} / {date} / {meal_type_en}] 데이터 전송 중...")
-                
-                try:
-                    response = requests.post(api_url, json=payload, headers=headers, timeout=5)
-                    response.raise_for_status() 
-                    print(f"  ✅ 전송 성공: {response.status_code}")
-                except requests.exceptions.RequestException as e:
-                    print(f"  ❌ 전송 실패: {e}")
-                    if e.response is not None:
-                        print(f"     응답 내용: {e.response.text}")
+                all_payloads.append(payload)
+
+    payloads_to_send, _, new_state, stats = plan_sync("snuco", all_payloads)
+    print(
+        f"📊 동기화 대상: 전체 {stats['current']}건 / 변경 {stats['changed']}건 / "
+        f"삭제 {stats['deleted']}건 / 유지 {stats['unchanged']}건"
+    )
+
+    sent_keys = set()
+    for payload in payloads_to_send:
+        restaurant_name = payload["restaurant"]
+        date = payload["date"]
+        meal_type_en = payload["type"]
+
+        print(f"🚀 [{restaurant_name} / {date} / {meal_type_en}] 데이터 전송 중...")
+
+        try:
+            response = requests.post(api_url, json=payload, headers=headers, timeout=5)
+            response.raise_for_status()
+            sent_keys.add(payload_key(payload))
+            print(f"  ✅ 전송 성공: {response.status_code}")
+        except requests.exceptions.RequestException as e:
+            print(f"  ❌ 전송 실패: {e}")
+            if e.response is not None:
+                print(f"     응답 내용: {e.response.text}")
+
+    # Persist state only for entries that were either unchanged (not in
+    # payloads_to_send) or successfully sent, so any failed send is retried
+    # on the next run.
+    scheduled_keys = {payload_key(p) for p in payloads_to_send}
+    committed_state = {k: v for k, v in new_state.items() if k not in scheduled_keys}
+    for key in sent_keys:
+        if key in new_state:
+            committed_state[key] = new_state[key]
+    save_state("snuco", committed_state)
 
 if __name__ == "__main__":
     print("🍽️ 식단 크롤링을 시작합니다...")

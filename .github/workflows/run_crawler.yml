@@ -23,6 +23,14 @@ jobs:
         python -m pip install --upgrade pip
         pip install requests beautifulsoup4 pytz
 
+    - name: 크롤러 상태를 복원합니다
+      uses: actions/cache/restore@v4
+      with:
+        path: .crawler_state
+        key: crawler-state-${{ github.run_id }}
+        restore-keys: |
+          crawler-state-
+
     - name: 🍽️ 학생회관 크롤러 실행
       env:
         CRAWLER_API_KEY: ${{ secrets.CRAWLER_API_KEY }}
@@ -40,3 +48,10 @@ jobs:
         CRAWLER_API_KEY: ${{ secrets.CRAWLER_API_KEY }}
       # 🚨 실행 경로를 vet 폴더 안으로 지정!
       run: python vet/vet_api_sender.py
+
+    - name: 크롤러 상태를 저장합니다
+      uses: actions/cache/save@v4
+      if: always()
+      with:
+        path: .crawler_state
+        key: crawler-state-${{ github.run_id }}

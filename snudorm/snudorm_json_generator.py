@@ -23,6 +23,8 @@ import requests
 import urllib3
 import pytz
 
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 DEFAULT_URL = "https://snudorm.snu.ac.kr/foodmenu/"
@@ -259,7 +261,7 @@ def save_to_json(crawled_data: dict, filename="snudorm_payload.json"):
                     "meals": dto_meals
                 }
                 all_payloads.append(payload)
-                
+
     with open(filename, 'w', encoding='utf-8') as f:
         json.dump(all_payloads, f, ensure_ascii=False, indent=2)
     print(f"📁 파싱된 데이터가 '{filename}'에 성공적으로 저장되었습니다!")
