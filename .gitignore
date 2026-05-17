@@ -3,3 +3,7 @@
 
 # Python artifacts
 __pycache__/
+*.pyc
+
+# Generated crawler payloads
+*_payload.json
