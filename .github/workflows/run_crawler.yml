@@ -24,19 +24,44 @@ jobs:
         pip install requests beautifulsoup4 pytz
 
     - name: 🍽️ 학생회관 크롤러 실행
+      id: snuco
+      continue-on-error: true
       env:
         CRAWLER_API_KEY: ${{ secrets.CRAWLER_API_KEY }}
-      # 🚨 실행 경로를 snuco 폴더 안으로 지정!
-      run: python snuco/snuco_api_sender.py
+      run: python snuco/api_sender.py
 
     - name: 🍽️ 기숙사 식당 크롤러 실행
+      id: snudorm
+      continue-on-error: true
       env:
         CRAWLER_API_KEY: ${{ secrets.CRAWLER_API_KEY }}
-      # 🚨 실행 경로를 snudorm 폴더 안으로 지정!
-      run: python snudorm/snudorm_api_sender.py
+      run: python snudorm/api_sender.py
 
     - name: 🍽️ 수의대 식당 크롤러 실행
+      id: vet
+      continue-on-error: true
       env:
         CRAWLER_API_KEY: ${{ secrets.CRAWLER_API_KEY }}
-      # 🚨 실행 경로를 vet 폴더 안으로 지정!
-      run: python vet/vet_api_sender.py
+      run: python vet/api_sender.py
+
+    - name: 크롤러 실행 결과 확인
+      if: always()
+      run: |
+        failed=0
+
+        if [ "${{ steps.snuco.outcome }}" != "success" ]; then
+          echo "SNUCO crawler failed: ${{ steps.snuco.outcome }}"
+          failed=1
+        fi
+
+        if [ "${{ steps.snudorm.outcome }}" != "success" ]; then
+          echo "SNUDORM crawler failed: ${{ steps.snudorm.outcome }}"
+          failed=1
+        fi
+
+        if [ "${{ steps.vet.outcome }}" != "success" ]; then
+          echo "VET crawler failed: ${{ steps.vet.outcome }}"
+          failed=1
+        fi
+
+        exit "$failed"

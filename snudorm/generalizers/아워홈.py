@@ -1,0 +1,93 @@
+import re
+from typing import Any
+
+
+EXCLUDED_MENU_NAMES_BY_MEAL_TIME = {
+    "BREAKFAST": {"세미양식부페"},
+}
+TIME_RE = re.compile(r"^※\s*운영시간\s*:\s*(?P<service_time>\d{1,2}:\d{2}~\d{1,2}:\d{2})$")
+PRICE_RE = re.compile(r"^(?P<menu>.+?)\s*:\s*(?P<price>[\d,]+원)$")
+MENU_NAME_SPLIT_RE = re.compile(r"\s*[,/&*]\s*")
+
+
+def meal_type_from_service_time(service_time: str) -> str | None:
+    start_time = service_time.split("~", 1)[0]
+    hour = int(start_time.split(":", 1)[0])
+    if 7 <= hour <= 9:
+        return "BREAKFAST"
+    if 11 <= hour <= 14:
+        return "LUNCH"
+    if 17 <= hour <= 19:
+        return "DINNER"
+    return None
+
+
+def parse_menu_line(line: str) -> tuple[str, int | None]:
+    price_match = PRICE_RE.match(line)
+    if not price_match:
+        return line, None
+
+    return (
+        price_match.group("menu").strip(),
+        int(price_match.group("price").replace(",", "").replace("원", "")),
+    )
+
+
+def normalize_menu_names(name_text: str, meal_type: str) -> list[str]:
+    name_text = name_text.replace("(잇템)", "").replace("(#)", "").replace("[#]", "").strip()
+    excluded_names = EXCLUDED_MENU_NAMES_BY_MEAL_TIME.get(meal_type, set())
+    return [
+        normalized_name
+        for name in MENU_NAME_SPLIT_RE.split(name_text)
+        if (normalized_name := name.strip())
+        if normalized_name not in excluded_names
+    ]
+
+
+def build_meal(names: list[str], price: int | None) -> dict[str, Any]:
+    return {"price": price, "noMeat": False, "menus": names}
+
+
+def parse_menu_lines(lines: list[str], meal_type: str) -> list[dict[str, Any]]:
+    meals = []
+    pending_price: int | None = None
+
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        menu_text, price = parse_menu_line(line)
+        names = normalize_menu_names(menu_text, meal_type)
+
+        if not names:
+            if price is not None:
+                pending_price = price
+            continue
+
+        item_price = price if price is not None else pending_price
+        meals.append(build_meal(names, item_price))
+        pending_price = None
+
+    return meals
+
+
+def generalize_cafeteria(lines: list[str]) -> list[dict[str, Any]]:
+    payloads = []
+    current_menu_lines: list[str] = []
+
+    for line in lines:
+        time_match = TIME_RE.match(line.strip())
+        if time_match is None:
+            current_menu_lines.append(line)
+            continue
+
+        meal_type = meal_type_from_service_time(time_match.group("service_time"))
+        if meal_type is not None:
+            meals = parse_menu_lines(current_menu_lines, meal_type)
+            if meals:
+                payloads.append({"type": meal_type, "meals": meals})
+
+        current_menu_lines = []
+
+    return payloads
