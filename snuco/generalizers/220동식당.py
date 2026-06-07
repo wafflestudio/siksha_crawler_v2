@@ -11,7 +11,12 @@ SECTION_TO_RESTAURANT = {
     "바비든든": "220동식당 바비든든",
     "포포420": "220동식당 포포420",
     "값찌개": "220동식당 값찌개",
+    "키친101": "220동식당 키친101",
 }
+
+
+def section_key(section: str) -> str:
+    return re.sub(r"\s+", "", section.strip())
 
 
 def normalize_names(name_text: str) -> list[str]:
@@ -49,7 +54,7 @@ def parse_lines(lines: list[str]) -> dict[str, list[dict[str, Any]]]:
 
         section_match = SECTION_RE.match(line)
         if section_match is not None:
-            current_restaurant = SECTION_TO_RESTAURANT.get(section_match.group("section").strip(), current_restaurant)
+            current_restaurant = SECTION_TO_RESTAURANT.get(section_key(section_match.group("section")))
             line = section_match.group("body").strip()
             if not line:
                 continue

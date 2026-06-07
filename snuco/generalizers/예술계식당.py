@@ -13,6 +13,17 @@ SECTION_TO_RESTAURANT = {
 }
 
 
+def section_key(section: str) -> str:
+    return re.sub(r"\s+", "", section.strip())
+
+
+def canonical_restaurant(section: str) -> str | None:
+    key = section_key(section)
+    if key.startswith("직화코너"):
+        return "예술계식당 직화코너"
+    return SECTION_TO_RESTAURANT.get(key)
+
+
 def normalize_names(name_text: str) -> list[str]:
     name_text = re.sub(r"^<[^>]+>", "", name_text)
     name_text = name_text.replace("(#)", "").replace("[#]", "").strip()
@@ -37,7 +48,7 @@ def parse_price_line(line: str) -> dict[str, Any] | None:
 
 def parse_lines(meal_type: str, lines: list[str]) -> dict[str, list[dict[str, Any]]]:
     meals_by_restaurant: dict[str, list[dict[str, Any]]] = {}
-    current_restaurant: str | None = "예술계식당 직화코너" if meal_type == "DINNER" else None
+    current_restaurant: str | None = "예술계식당 A코너" if meal_type == "DINNER" else None
 
     for line in lines:
         if line.startswith("※"):
@@ -45,13 +56,10 @@ def parse_lines(meal_type: str, lines: list[str]) -> dict[str, list[dict[str, An
 
         section_match = SECTION_RE.match(line)
         if section_match is not None:
-            current_restaurant = SECTION_TO_RESTAURANT.get(section_match.group("section").strip(), current_restaurant)
+            current_restaurant = canonical_restaurant(section_match.group("section"))
             line = section_match.group("body").strip()
             if not line:
                 continue
-
-        if current_restaurant is None and line.startswith("철판)"):
-            current_restaurant = "예술계식당 직화코너"
 
         if current_restaurant is None:
             continue

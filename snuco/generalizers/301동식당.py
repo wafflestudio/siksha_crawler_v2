@@ -7,7 +7,7 @@ SPLIT_RE = re.compile(r"\s*[,&*]\s*")
 OR_OPTION_SEPARATOR_RE = re.compile(r"\s*(?<![A-Za-z])OR(?![A-Za-z])\s*")
 SECTION_RE = re.compile(r"^<(?P<section>[^>]+)>\s*(?P<body>.*)$")
 SECTION_TO_RESTAURANT = {
-    "천원의아침밥": "301동식당 TAKE-OUT",
+    "천원의아침밥": "301동식당 천원의아침밥",
     "식사": "301동식당 일반",
     "TAKE-OUT": "301동식당 TAKE-OUT",
     "301동1층 교직원전용식당": "301동식당 1층 교직원전용식당",
@@ -57,7 +57,7 @@ def split_or_option_meals(dto_meals: list[dict[str, Any]]) -> list[dict[str, Any
 
 
 def canonical_restaurant(section: str) -> str | None:
-    return SECTION_TO_RESTAURANT.get(section.strip())
+    return SECTION_TO_RESTAURANT.get(re.sub(r"\s+", " ", section.strip()))
 
 
 def parse_price_line(line: str) -> dict[str, Any] | None:

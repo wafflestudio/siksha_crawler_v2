@@ -2,9 +2,21 @@ import re
 from typing import Any
 
 
-BUFFET_RE = re.compile(r"^<셀프코너>\s*(?P<price>[\d,]+)\s*원")
+SECTION_RE = re.compile(r"^<(?P<section>[^>]+)>\s*(?P<body>.*)$")
+PRICE_ONLY_RE = re.compile(r"^(?P<price>[\d,]+)\s*원")
 PRICE_RE = re.compile(r"^(?P<name>.+?)\s*:\s*(?P<price>[\d,]+)\s*원")
 SPLIT_RE = re.compile(r"\s*[,&*]\s*")
+
+
+def section_key(section: str) -> str:
+    return re.sub(r"\s+", "", section.strip())
+
+
+def parse_price_only(text: str) -> int | None:
+    match = PRICE_ONLY_RE.match(text.strip())
+    if match is None:
+        return None
+    return int(match.group("price").replace(",", ""))
 
 
 def normalize_names(name_text: str) -> list[str]:
@@ -33,16 +45,18 @@ def parse_lines(lines: list[str]) -> dict[str, list[dict[str, Any]]]:
         if line.startswith("※"):
             continue
 
-        buffet_match = BUFFET_RE.match(line)
-        if buffet_match is not None:
+        section_match = SECTION_RE.match(line)
+        if section_match is not None:
             flush_buffet()
-            current_restaurant = "두레미담 셀프코너"
-            buffet_price = int(buffet_match.group("price").replace(",", ""))
-            continue
-
-        if line == "<주문식 메뉴>":
-            flush_buffet()
-            current_restaurant = "두레미담 식당"
+            key = section_key(section_match.group("section"))
+            body = section_match.group("body").strip()
+            if key == "셀프코너":
+                current_restaurant = "두레미담 셀프코너"
+                buffet_price = parse_price_only(body)
+            elif key == "주문식메뉴":
+                current_restaurant = "두레미담 식당"
+            else:
+                current_restaurant = None
             continue
 
         price_match = PRICE_RE.match(line)
