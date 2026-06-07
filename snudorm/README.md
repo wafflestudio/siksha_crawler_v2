@@ -125,11 +125,11 @@ block_lines = [
 meal_payloads = generalizer.generalize_cafeteria(block_lines)
 ```
 
-`crawl.py`는 generalizer가 반환한 meal payload에 `restaurant`, `date`를 붙여 최종 payload list에 추가한다.
+`crawl.py`는 source 식당명에 맞는 metadata와 `date`를 붙여 최종 payload list를 만든다.
 
 ```python
 {
-    "restaurant": restaurant_name,
+    **metadata,
     "date": menu_date,
     **meal_payload,
 }

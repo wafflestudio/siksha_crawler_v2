@@ -64,7 +64,6 @@ Source별 parsing 흐름은 각 폴더 README에 따로 정리되어 있습니�
   "buildingNumber": "109동",
   "buildingName": "농협",
   "restaurant": "자하연식당 3층",
-  "corner": null,
   "date": "2026-05-17",
   "type": "LUNCH",
   "meals": [
@@ -84,7 +83,6 @@ Source별 parsing 흐름은 각 폴더 README에 따로 정리되어 있습니�
 | `buildingNumber` | 서버 DB의 `building_v2.number`와 일치해야 하는 건물 번호 |
 | `buildingName` | 건물명. 없으면 `null` |
 | `restaurant` | 서버 DB의 `restaurant_v2.name`과 일치해야 하는 식당명 |
-| `corner` | 서버 DB의 `corner_v2.name`과 일치해야 하는 코너명. 단일 코너 식당이면 생략하거나 `null` |
 | `date` | `YYYY-MM-DD` 형식의 식단 날짜 |
 | `type` | `BREAKFAST`, `LUNCH`, `DINNER` |
 | `meals` | 같은 식당/날짜/끼니 안의 메뉴 세트 목록 |
@@ -92,9 +90,11 @@ Source별 parsing 흐름은 각 폴더 README에 따로 정리되어 있습니�
 | `meals[].noMeat` | 채식/비육류 여부. 현재는 기본적으로 `false` |
 | `meals[].menus` | 정규화 전 메뉴명 목록 |
 
-서버는 같은 `buildingNumber + restaurant + corner + date + type` 데이터를 삭제한 뒤 새 payload로 다시 저장합니다. 따라서 같은 끼니 payload를 다시 보내면 해당 끼니는 overwrite 방식으로 동기화됩니다.
+서버는 같은 `buildingNumber + restaurant + date + type` 데이터를 삭제한 뒤 새 payload로 다시 저장합니다. 따라서 같은 끼니 payload를 다시 보내면 해당 끼니는 overwrite 방식으로 동기화됩니다.
 
-`자하연식당 2층`, `자하연식당 3층`은 운영 시간과 식단표 노출이 분리되어 있어 corner가 아니라 각각 별도 restaurant로 전송합니다.
+여러 세부 판매 단위가 있는 식당은 세부 단위를 `restaurant`로 평탄화해서 전송합니다. 예를 들어 `301동식당`의 `<301동1층 교직원전용식당>` 섹션은 `buildingNumber = "301동"`, `restaurant = "1층 교직원전용식당"`으로 전송합니다.
+
+`자하연식당 2층`, `자하연식당 3층`은 운영 시간과 식단표 노출이 분리되어 있어 각각 별도 restaurant로 전송합니다.
 
 ## Local Setup
 

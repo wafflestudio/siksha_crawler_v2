@@ -170,17 +170,10 @@ def build_menu_payloads(html: str, menu_date: str) -> list[Payload]:
             if (lines := cell_lines(td))
         ]
         for meal_payload in generalizer.generalize_cafeteria(meal_cells):
-            meal_payload = dict(meal_payload)
-            corner = meal_payload.pop("corner", None)
-            payload = {
+            payloads.append({
                 **metadata,
                 "date": menu_date,
                 **meal_payload,
-            }
-            if corner is not None:
-                payload["corner"] = corner
-            payloads.append({
-                **payload,
             })
 
     return payloads

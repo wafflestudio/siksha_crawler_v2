@@ -30,8 +30,8 @@ CAFETERIA_GENERALIZERS = {
     CAFETERIA_NAMES[1]: 생협기숙사,
 }
 CAFETERIA_METADATA = {
-    "아워홈(901동)": {"buildingNumber": "901동", "buildingName": None, "restaurant": "아워홈(901동)"},
-    "생협기숙사(919동)": {"buildingNumber": "919동", "buildingName": "관악생활관", "restaurant": "생협기숙사(919동)"},
+    "아워홈(901동)": {"buildingNumber": "901동", "buildingName": None, "restaurant": "아워홈"},
+    "생협기숙사(919동)": {"buildingNumber": "919동", "buildingName": "관악생활관", "restaurant": "생협기숙사"},
 }
 BLOCK_TAGS = {
     "div", "p", "li", "ul", "ol", "section", "article",

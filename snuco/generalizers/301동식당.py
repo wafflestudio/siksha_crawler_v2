@@ -6,7 +6,7 @@ PRICE_RE = re.compile(r"^(?P<name>.+?)\s*:\s*(?P<price>[\d,]+)\s*원")
 SPLIT_RE = re.compile(r"\s*[,&*]\s*")
 OR_OPTION_SEPARATOR_RE = re.compile(r"\s*(?<![A-Za-z])OR(?![A-Za-z])\s*")
 SECTION_RE = re.compile(r"^<(?P<section>[^>]+)>\s*(?P<body>.*)$")
-SECTION_TO_CORNER = {
+SECTION_TO_RESTAURANT = {
     "천원의아침밥": "TAKE-OUT",
     "식사": "일반",
     "TAKE-OUT": "TAKE-OUT",
@@ -57,8 +57,8 @@ def split_or_option_meals(dto_meals: list[dict[str, Any]]) -> list[dict[str, Any
     return expanded_meals
 
 
-def canonical_corner(section: str) -> str | None:
-    return SECTION_TO_CORNER.get(section.strip())
+def canonical_restaurant(section: str) -> str | None:
+    return SECTION_TO_RESTAURANT.get(section.strip())
 
 
 def parse_price_line(line: str) -> dict[str, Any] | None:
@@ -78,15 +78,15 @@ def parse_price_line(line: str) -> dict[str, Any] | None:
 
 
 def parse_lines(lines: list[str]) -> dict[str, list[dict[str, Any]]]:
-    meals_by_corner: dict[str, list[dict[str, Any]]] = {}
-    current_corner = "일반"
+    meals_by_restaurant: dict[str, list[dict[str, Any]]] = {}
+    current_restaurant = "일반"
     for line in lines:
         if line.startswith("※"):
             continue
 
         section_match = SECTION_RE.match(line)
         if section_match is not None:
-            current_corner = canonical_corner(section_match.group("section")) or current_corner
+            current_restaurant = canonical_restaurant(section_match.group("section")) or current_restaurant
             line = section_match.group("body").strip()
             if not line:
                 continue
@@ -95,19 +95,19 @@ def parse_lines(lines: list[str]) -> dict[str, list[dict[str, Any]]]:
         if meal is None:
             continue
 
-        meals_by_corner.setdefault(current_corner, []).append(meal)
+        meals_by_restaurant.setdefault(current_restaurant, []).append(meal)
 
     return {
-        corner: split_or_option_meals(meals)
-        for corner, meals in meals_by_corner.items()
+        restaurant: split_or_option_meals(meals)
+        for restaurant, meals in meals_by_restaurant.items()
     }
 
 
 def generalize_cafeteria(meal_cells: list[tuple[str, list[str]]]) -> list[dict[str, Any]]:
     payloads = []
     for meal_type, lines in meal_cells:
-        meals_by_corner = parse_lines(lines)
-        for corner, meals in meals_by_corner.items():
+        meals_by_restaurant = parse_lines(lines)
+        for restaurant, meals in meals_by_restaurant.items():
             if meals:
-                payloads.append({"corner": corner, "type": meal_type, "meals": meals})
+                payloads.append({"restaurant": restaurant, "type": meal_type, "meals": meals})
     return payloads
