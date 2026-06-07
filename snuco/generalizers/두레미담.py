@@ -21,7 +21,7 @@ def parse_lines(lines: list[str]) -> dict[str, list[dict[str, Any]]]:
     def flush_buffet() -> None:
         nonlocal buffet_price, buffet_items
         if buffet_items:
-            meals_by_restaurant.setdefault("셀프코너", []).append({
+            meals_by_restaurant.setdefault("두레미담 셀프코너", []).append({
                 "price": buffet_price,
                 "noMeat": False,
                 "menus": buffet_items,
@@ -36,13 +36,13 @@ def parse_lines(lines: list[str]) -> dict[str, list[dict[str, Any]]]:
         buffet_match = BUFFET_RE.match(line)
         if buffet_match is not None:
             flush_buffet()
-            current_restaurant = "셀프코너"
+            current_restaurant = "두레미담 셀프코너"
             buffet_price = int(buffet_match.group("price").replace(",", ""))
             continue
 
         if line == "<주문식 메뉴>":
             flush_buffet()
-            current_restaurant = "식당"
+            current_restaurant = "두레미담 식당"
             continue
 
         price_match = PRICE_RE.match(line)
@@ -50,7 +50,7 @@ def parse_lines(lines: list[str]) -> dict[str, list[dict[str, Any]]]:
             flush_buffet()
             names = normalize_names(price_match.group("name"))
             if names:
-                meals_by_restaurant.setdefault(current_restaurant or "식당", []).append({
+                meals_by_restaurant.setdefault(current_restaurant or "두레미담 식당", []).append({
                     "price": int(price_match.group("price").replace(",", "")),
                     "noMeat": False,
                     "menus": names,

@@ -6,10 +6,10 @@ PRICE_RE = re.compile(r"^(?P<name>.+?)\s*:\s*(?P<price>[\d,]+)\s*원")
 SPLIT_RE = re.compile(r"\s*[,&*]\s*")
 SECTION_RE = re.compile(r"^<(?P<section>[^>]+)>\s*(?P<body>.*)$")
 SECTION_TO_RESTAURANT = {
-    "A코너": "A코너",
-    "B코너": "B코너",
-    "C코너": "C코너",
-    "직화코너": "직화코너",
+    "A코너": "예술계식당 A코너",
+    "B코너": "예술계식당 B코너",
+    "C코너": "예술계식당 C코너",
+    "직화코너": "예술계식당 직화코너",
 }
 
 
@@ -37,7 +37,7 @@ def parse_price_line(line: str) -> dict[str, Any] | None:
 
 def parse_lines(meal_type: str, lines: list[str]) -> dict[str, list[dict[str, Any]]]:
     meals_by_restaurant: dict[str, list[dict[str, Any]]] = {}
-    current_restaurant: str | None = "직화코너" if meal_type == "DINNER" else None
+    current_restaurant: str | None = "예술계식당 직화코너" if meal_type == "DINNER" else None
 
     for line in lines:
         if line.startswith("※"):
@@ -51,7 +51,7 @@ def parse_lines(meal_type: str, lines: list[str]) -> dict[str, list[dict[str, An
                 continue
 
         if current_restaurant is None and line.startswith("철판)"):
-            current_restaurant = "직화코너"
+            current_restaurant = "예술계식당 직화코너"
 
         if current_restaurant is None:
             continue

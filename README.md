@@ -92,7 +92,7 @@ Source별 parsing 흐름은 각 폴더 README에 따로 정리되어 있습니�
 
 서버는 같은 `buildingNumber + restaurant + date + type` 데이터를 삭제한 뒤 새 payload로 다시 저장합니다. 따라서 같은 끼니 payload를 다시 보내면 해당 끼니는 overwrite 방식으로 동기화됩니다.
 
-여러 세부 판매 단위가 있는 식당은 세부 단위를 `restaurant`로 평탄화해서 전송합니다. 예를 들어 `301동식당`의 `<301동1층 교직원전용식당>` 섹션은 `buildingNumber = "301동"`, `restaurant = "1층 교직원전용식당"`으로 전송합니다.
+여러 세부 판매 단위가 있는 식당은 parent 식당명을 포함한 세부 단위를 `restaurant`로 평탄화해서 전송합니다. 예를 들어 `301동식당`의 `<301동1층 교직원전용식당>` 섹션은 `buildingNumber = "301동"`, `restaurant = "301동식당 1층 교직원전용식당"`으로 전송합니다.
 
 `자하연식당 2층`, `자하연식당 3층`은 운영 시간과 식단표 노출이 분리되어 있어 각각 별도 restaurant로 전송합니다.
 

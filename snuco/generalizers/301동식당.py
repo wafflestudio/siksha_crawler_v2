@@ -7,13 +7,12 @@ SPLIT_RE = re.compile(r"\s*[,&*]\s*")
 OR_OPTION_SEPARATOR_RE = re.compile(r"\s*(?<![A-Za-z])OR(?![A-Za-z])\s*")
 SECTION_RE = re.compile(r"^<(?P<section>[^>]+)>\s*(?P<body>.*)$")
 SECTION_TO_RESTAURANT = {
-    "천원의아침밥": "TAKE-OUT",
-    "식사": "일반",
-    "TAKE-OUT": "TAKE-OUT",
-    "301동1층 교직원전용식당": "1층 교직원전용식당",
-    "301동 1층 교직원전용식당": "1층 교직원전용식당",
-    "TAKE-OUT 카페 301동": "카페 301동",
-    "키친101": "키친101",
+    "천원의아침밥": "301동식당 TAKE-OUT",
+    "식사": "301동식당 일반",
+    "TAKE-OUT": "301동식당 TAKE-OUT",
+    "301동1층 교직원전용식당": "301동식당 1층 교직원전용식당",
+    "301동 1층 교직원전용식당": "301동식당 1층 교직원전용식당",
+    "TAKE-OUT 카페 301동": "301동식당 카페 301동",
 }
 
 
@@ -79,17 +78,21 @@ def parse_price_line(line: str) -> dict[str, Any] | None:
 
 def parse_lines(lines: list[str]) -> dict[str, list[dict[str, Any]]]:
     meals_by_restaurant: dict[str, list[dict[str, Any]]] = {}
-    current_restaurant = "일반"
+    current_restaurant: str | None = "301동식당 일반"
     for line in lines:
         if line.startswith("※"):
             continue
 
         section_match = SECTION_RE.match(line)
         if section_match is not None:
-            current_restaurant = canonical_restaurant(section_match.group("section")) or current_restaurant
+            section = section_match.group("section").strip()
+            current_restaurant = canonical_restaurant(section)
             line = section_match.group("body").strip()
             if not line:
                 continue
+
+        if current_restaurant is None:
+            continue
 
         meal = parse_price_line(line)
         if meal is None:

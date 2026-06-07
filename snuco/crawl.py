@@ -40,7 +40,6 @@ CAFETERIA_NAMES = (
     "3식당",
     "302동식당",
     "301동식당",
-    "버거운버거",
     "공대간이식당",
     "75-1동 4층 푸드코트",
     "220동식당",
@@ -55,7 +54,6 @@ CAFETERIA_METADATA = {
     "3식당": {"buildingNumber": "75-1동", "buildingName": "전망대", "restaurant": "3식당"},
     "302동식당": {"buildingNumber": "302동", "buildingName": None, "restaurant": "302동식당"},
     "301동식당": {"buildingNumber": "301동", "buildingName": None, "restaurant": "301동식당"},
-    "버거운버거": {"buildingNumber": "75-1동", "buildingName": "전망대", "restaurant": "버거운버거"},
     "공대간이식당": {"buildingNumber": "30-2동", "buildingName": None, "restaurant": "공대간이식당"},
     "75-1동 4층 푸드코트": {"buildingNumber": "75-1동", "buildingName": "전망대", "restaurant": "4층 푸드코드"},
     "220동식당": {"buildingNumber": "220동", "buildingName": None, "restaurant": "220동식당"},
@@ -85,10 +83,9 @@ CAFETERIA_GENERALIZERS = {
     CAFETERIA_NAMES[6]: load_generalizer("3식당.py"),
     CAFETERIA_NAMES[7]: load_generalizer("302동식당.py"),
     CAFETERIA_NAMES[8]: load_generalizer("301동식당.py"),
-    CAFETERIA_NAMES[9]: load_generalizer("버거운버거.py"),
-    CAFETERIA_NAMES[10]: load_generalizer("공대간이식당.py"),
-    CAFETERIA_NAMES[11]: load_generalizer("75-1동_4층_푸드코드.py"),
-    CAFETERIA_NAMES[12]: load_generalizer("220동식당.py"),
+    CAFETERIA_NAMES[9]: load_generalizer("공대간이식당.py"),
+    CAFETERIA_NAMES[10]: load_generalizer("75-1동_4층_푸드코드.py"),
+    CAFETERIA_NAMES[11]: load_generalizer("220동식당.py"),
 }
 
 
