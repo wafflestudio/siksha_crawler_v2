@@ -5,6 +5,7 @@ from typing import Any
 TIME_RE = re.compile(r"^※\s*운영시간\s*:\s*(?P<service_time>\d{1,2}:\d{2}~\d{1,2}:\d{2})$")
 PRICE_RE = re.compile(r"^(?P<menu>.+?)\s*:\s*(?P<price>[\d,]+원)$")
 MENU_NAME_SPLIT_RE = re.compile(r"\s*[,/&*]\s*")
+MEAL_TYPE_ORDER = ("BREAKFAST", "LUNCH", "DINNER")
 
 
 def meal_type_from_service_time(service_time: str) -> str | None:
@@ -55,7 +56,7 @@ def parse_menu_lines(lines: list[str], meal_type: str) -> list[dict[str, Any]]:
 
 
 def generalize_cafeteria(lines: list[str]) -> list[dict[str, Any]]:
-    payloads = []
+    meals_by_type: dict[str, list[dict[str, Any]]] = {}
     current_menu_lines: list[str] = []
 
     for line in lines:
@@ -68,8 +69,12 @@ def generalize_cafeteria(lines: list[str]) -> list[dict[str, Any]]:
         if meal_type is not None:
             meals = parse_menu_lines(current_menu_lines, meal_type)
             if meals:
-                payloads.append({"type": meal_type, "meals": meals})
+                meals_by_type.setdefault(meal_type, []).extend(meals)
 
         current_menu_lines = []
 
-    return payloads
+    return [
+        {"type": meal_type, "meals": meals_by_type[meal_type]}
+        for meal_type in MEAL_TYPE_ORDER
+        if meal_type in meals_by_type
+    ]
