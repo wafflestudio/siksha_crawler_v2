@@ -21,6 +21,10 @@ DEFAULT_URL = "https://snuco.snu.ac.kr/foodmenu/"
 CRAWL_DAYS_AHEAD = 7
 KST = pytz.timezone("Asia/Seoul")
 GENERALIZER_DIR = Path(__file__).resolve().parent / "generalizers"
+EXCLUDED_CAFETERIA_NAMES = {
+    "기숙사식당",
+    "버거운버거",
+}
 MEAL_TYPE_BY_CELL_CLASS = {
     "breakfast": "BREAKFAST",
     "lunch": "LUNCH",
@@ -41,6 +45,21 @@ CAFETERIA_NAMES = (
     "75-1동 4층 푸드코트",
     "220동식당",
 )
+CAFETERIA_METADATA = {
+    "학생회관식당": {"buildingNumber": "63동", "buildingName": "학생회관", "restaurant": "학생회관식당"},
+    "자하연식당 3층": {"buildingNumber": "109동", "buildingName": "농협", "restaurant": "자하연식당 3층"},
+    "자하연식당 2층": {"buildingNumber": "109동", "buildingName": "농협", "restaurant": "자하연식당 2층"},
+    "예술계식당": {"buildingNumber": "74동", "buildingName": None, "restaurant": "예술계식당"},
+    "두레미담": {"buildingNumber": "75-1동", "buildingName": "전망대", "restaurant": "두레미담"},
+    "동원관식당": {"buildingNumber": "113동", "buildingName": None, "restaurant": "동원관식당"},
+    "3식당": {"buildingNumber": "75-1동", "buildingName": "전망대", "restaurant": "3식당"},
+    "302동식당": {"buildingNumber": "302동", "buildingName": None, "restaurant": "302동식당"},
+    "301동식당": {"buildingNumber": "301동", "buildingName": None, "restaurant": "301동식당"},
+    "버거운버거": {"buildingNumber": "75-1동", "buildingName": "전망대", "restaurant": "버거운버거"},
+    "공대간이식당": {"buildingNumber": "30-2동", "buildingName": None, "restaurant": "공대간이식당"},
+    "75-1동 4층 푸드코트": {"buildingNumber": "75-1동", "buildingName": "전망대", "restaurant": "4층 푸드코드"},
+    "220동식당": {"buildingNumber": "220동", "buildingName": None, "restaurant": "220동식당"},
+}
 
 
 def load_generalizer(file_name: str) -> Generalizer:
@@ -134,12 +153,15 @@ def build_menu_payloads(html: str, menu_date: str) -> list[Payload]:
             continue
 
         restaurant_name = clean_restaurant_name(tds[0].get_text(" ", strip=True))
-        if restaurant_name == "기숙사식당":
+        if restaurant_name in EXCLUDED_CAFETERIA_NAMES:
             continue
 
         generalizer = CAFETERIA_GENERALIZERS.get(restaurant_name)
         if generalizer is None:
             raise ValueError(f"SNUCO 식당 generalizer를 찾지 못했습니다: {restaurant_name}")
+        metadata = CAFETERIA_METADATA.get(restaurant_name)
+        if metadata is None:
+            raise ValueError(f"SNUCO 식당 metadata를 찾지 못했습니다: {restaurant_name}")
 
         meal_cells = [
             (meal_type, lines)
@@ -148,10 +170,17 @@ def build_menu_payloads(html: str, menu_date: str) -> list[Payload]:
             if (lines := cell_lines(td))
         ]
         for meal_payload in generalizer.generalize_cafeteria(meal_cells):
-            payloads.append({
-                "restaurant": restaurant_name,
+            meal_payload = dict(meal_payload)
+            corner = meal_payload.pop("corner", None)
+            payload = {
+                **metadata,
                 "date": menu_date,
                 **meal_payload,
+            }
+            if corner is not None:
+                payload["corner"] = corner
+            payloads.append({
+                **payload,
             })
 
     return payloads

@@ -12,15 +12,16 @@ def normalize_names(name_text: str) -> list[str]:
     return [name for part in SPLIT_RE.split(name_text) if (name := part.strip())]
 
 
-def parse_lines(lines: list[str]) -> list[dict[str, Any]]:
-    meals = []
+def parse_lines(lines: list[str]) -> dict[str, list[dict[str, Any]]]:
+    meals_by_corner: dict[str, list[dict[str, Any]]] = {}
     buffet_price: int | None = None
     buffet_items: list[str] = []
+    current_corner: str | None = None
 
     def flush_buffet() -> None:
         nonlocal buffet_price, buffet_items
         if buffet_items:
-            meals.append({"price": buffet_price, "noMeat": False, "menus": buffet_items})
+            meals_by_corner.setdefault("셀프코너", []).append({"price": buffet_price, "noMeat": False, "menus": buffet_items})
         buffet_price = None
         buffet_items = []
 
@@ -31,11 +32,13 @@ def parse_lines(lines: list[str]) -> list[dict[str, Any]]:
         buffet_match = BUFFET_RE.match(line)
         if buffet_match is not None:
             flush_buffet()
+            current_corner = "셀프코너"
             buffet_price = int(buffet_match.group("price").replace(",", ""))
             continue
 
         if line == "<주문식 메뉴>":
             flush_buffet()
+            current_corner = "식당"
             continue
 
         price_match = PRICE_RE.match(line)
@@ -43,7 +46,7 @@ def parse_lines(lines: list[str]) -> list[dict[str, Any]]:
             flush_buffet()
             names = normalize_names(price_match.group("name"))
             if names:
-                meals.append({
+                meals_by_corner.setdefault(current_corner or "식당", []).append({
                     "price": int(price_match.group("price").replace(",", "")),
                     "noMeat": False,
                     "menus": names,
@@ -54,13 +57,14 @@ def parse_lines(lines: list[str]) -> list[dict[str, Any]]:
             buffet_items.extend(normalize_names(line))
 
     flush_buffet()
-    return meals
+    return meals_by_corner
 
 
 def generalize_cafeteria(meal_cells: list[tuple[str, list[str]]]) -> list[dict[str, Any]]:
     payloads = []
     for meal_type, lines in meal_cells:
-        meals = parse_lines(lines)
-        if meals:
-            payloads.append({"type": meal_type, "meals": meals})
+        meals_by_corner = parse_lines(lines)
+        for corner, meals in meals_by_corner.items():
+            if meals:
+                payloads.append({"corner": corner, "type": meal_type, "meals": meals})
     return payloads

@@ -29,6 +29,10 @@ CAFETERIA_GENERALIZERS = {
     CAFETERIA_NAMES[0]: 아워홈,
     CAFETERIA_NAMES[1]: 생협기숙사,
 }
+CAFETERIA_METADATA = {
+    "아워홈(901동)": {"buildingNumber": "901동", "buildingName": None, "restaurant": "아워홈(901동)"},
+    "생협기숙사(919동)": {"buildingNumber": "919동", "buildingName": "관악생활관", "restaurant": "생협기숙사(919동)"},
+}
 BLOCK_TAGS = {
     "div", "p", "li", "ul", "ol", "section", "article",
     "table", "thead", "tbody", "tfoot", "tr", "td", "th",
@@ -134,11 +138,14 @@ def build_menu_payloads(html: str, menu_date: str) -> list[Payload]:
         generalizer = CAFETERIA_GENERALIZERS.get(restaurant_name)
         if generalizer is None:
             raise ValueError(f"SNUDORM 식당 generalizer를 찾지 못했습니다: {restaurant_name}")
+        metadata = CAFETERIA_METADATA.get(restaurant_name)
+        if metadata is None:
+            raise ValueError(f"SNUDORM 식당 metadata를 찾지 못했습니다: {restaurant_name}")
 
         meal_payloads = generalizer.generalize_cafeteria(block_lines)
         for meal_payload in meal_payloads:
             payloads.append({
-                "restaurant": restaurant_name,
+                **metadata,
                 "date": menu_date,
                 **meal_payload,
             })

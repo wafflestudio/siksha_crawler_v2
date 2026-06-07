@@ -15,6 +15,11 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 DEFAULT_URL = "https://vet.snu.ac.kr/cafe_menu/"
 RESTAURANT_NAME = "수의대식당"
+RESTAURANT_METADATA = {
+    "buildingNumber": "85동",
+    "buildingName": "수의과대학",
+    "restaurant": RESTAURANT_NAME,
+}
 CAFETERIA_GENERALIZERS = {
     RESTAURANT_NAME: 수의대식당,
 }
@@ -79,7 +84,13 @@ def build_menu_payloads(html: str) -> list[Payload]:
     if generalizer is None:
         raise ValueError(f"VET 식당 generalizer를 찾지 못했습니다: {RESTAURANT_NAME}")
 
-    payloads = generalizer.generalize_cafeteria(lunch_rows, dinner_menu)
+    payloads = [
+        {
+            **RESTAURANT_METADATA,
+            **payload,
+        }
+        for payload in generalizer.generalize_cafeteria(lunch_rows, dinner_menu)
+    ]
     if not payloads:
         raise ValueError("VET 식단 payload를 생성하지 못했습니다.")
 
