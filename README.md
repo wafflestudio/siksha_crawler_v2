@@ -150,13 +150,13 @@ uv run python vet/api_sender.py
 기본 API endpoint:
 
 ```text
-https://siksha-server-dev.wafflestudio.com/crawler/meals
+https://siksha-server-dev.wafflestudio.com/v2/crawler/meals
 ```
 
 다른 서버로 전송하려면 `CRAWLER_API_URL`을 지정합니다.
 
 ```bash
-export CRAWLER_API_URL=http://localhost:8080/crawler/meals
+export CRAWLER_API_URL=http://localhost:8080/v2/crawler/meals
 ```
 
 ## GitHub Actions

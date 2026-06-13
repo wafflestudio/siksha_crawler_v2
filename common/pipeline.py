@@ -8,7 +8,7 @@ import requests
 from .types import CrawlFailure, CrawlFunction
 
 
-API_URL = os.getenv("CRAWLER_API_URL", "https://siksha-server-dev.wafflestudio.com/crawler/meals")
+API_URL = os.getenv("CRAWLER_API_URL", "https://siksha-server-dev.wafflestudio.com/v2/crawler/meals")
 
 
 def post_payloads(payloads: list[dict], source: str) -> None:
