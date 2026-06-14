@@ -1,17 +1,16 @@
 import importlib.util
 import re
 import sys
-from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlencode
 
-import pytz
 import requests
 import urllib3
 from bs4 import BeautifulSoup
 
 sys.path.append(str(Path(__file__).resolve().parent))
 sys.path.append(str(Path(__file__).resolve().parents[1]))
+from common.dates import configured_menu_dates
 from common.types import Generalizer, Payload
 
 
@@ -19,7 +18,6 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 DEFAULT_URL = "https://snuco.snu.ac.kr/foodmenu/"
 CRAWL_DAYS_AHEAD = 7
-KST = pytz.timezone("Asia/Seoul")
 GENERALIZER_DIR = Path(__file__).resolve().parent / "generalizers"
 EXCLUDED_CAFETERIA_NAMES = {
     "기숙사식당",
@@ -90,11 +88,7 @@ CAFETERIA_GENERALIZERS = {
 
 
 def menu_dates(days_ahead: int = CRAWL_DAYS_AHEAD) -> list[str]:
-    start_date = datetime.now(KST).date()
-    return [
-        (start_date + timedelta(days=offset)).strftime("%Y-%m-%d")
-        for offset in range(days_ahead + 1)
-    ]
+    return configured_menu_dates(days_ahead)
 
 
 def fetch_html(url: str) -> str:

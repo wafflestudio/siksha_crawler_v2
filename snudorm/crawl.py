@@ -1,16 +1,15 @@
 import re
 import sys
-from datetime import datetime, timedelta
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlencode
 
-import pytz
 import requests
 import urllib3
 
 sys.path.append(str(Path(__file__).resolve().parent))
 sys.path.append(str(Path(__file__).resolve().parents[1]))
+from common.dates import configured_menu_dates
 from common.types import Payload
 from snudorm.generalizers import 생협기숙사, 아워홈
 
@@ -19,7 +18,6 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 DEFAULT_URL = "https://snudorm.snu.ac.kr/foodmenu/"
 CRAWL_DAYS_AHEAD = 7
-KST = pytz.timezone("Asia/Seoul")
 SECTION_END_MARKER = "개인정보처리방침"
 CAFETERIA_NAMES = (
     "아워홈(901동)",
@@ -70,11 +68,7 @@ def menu_url(menu_date: str) -> str:
 
 
 def menu_dates(days_ahead: int = CRAWL_DAYS_AHEAD) -> list[str]:
-    start_date = datetime.now(KST).date()
-    return [
-        (start_date + timedelta(days=offset)).strftime("%Y-%m-%d")
-        for offset in range(days_ahead + 1)
-    ]
+    return configured_menu_dates(days_ahead)
 
 
 def html_to_lines(html: str) -> list[str]:
