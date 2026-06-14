@@ -3,7 +3,7 @@ from typing import Any
 
 
 TIME_RE = re.compile(r"^※\s*운영시간\s*:\s*(?P<service_time>\d{1,2}:\d{2}~\d{1,2}:\d{2})$")
-PRICE_RE = re.compile(r"^(?P<menu>.+?)\s*:\s*(?P<price>[\d,]+원)$")
+PRICE_RE = re.compile(r"^(?P<menu>.+?)\s*[:;：；]\s*(?P<price>[\d,]+원)$")
 MENU_NAME_SPLIT_RE = re.compile(r"\s*[,/&*]\s*")
 MEAL_TYPE_ORDER = ("BREAKFAST", "LUNCH", "DINNER")
 
