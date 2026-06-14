@@ -5,6 +5,8 @@ from typing import Any
 PRICE_RE = re.compile(r"^(?P<name>.+?)\s*:?\s*(?P<price>[\d,]+)\s*원")
 SPLIT_RE = re.compile(r"\s*[,&+*]\s*")
 SECTION_RE = re.compile(r"^<(?P<section>[^>]+)>\s*(?P<body>.*)$")
+RICE_INCLUDED_RE = re.compile(r"\s*\(\s*밥\s*포함\s*\)")
+GAP_STEW_RESTAURANT = "220동식당 값찌개"
 SECTION_TO_RESTAURANT = {
     "경성 돈카츠": "220동식당 경성 돈카츠",
     "경성돈카츠": "220동식당 경성 돈카츠",
@@ -19,21 +21,24 @@ def section_key(section: str) -> str:
     return re.sub(r"\s+", "", section.strip())
 
 
-def normalize_names(name_text: str) -> list[str]:
+def normalize_names(name_text: str, restaurant: str) -> list[str]:
     name_text = name_text.replace("제육한접시 세트", "제육한접시")
     name_text = name_text.replace("제육한접시세트", "제육한접시")
     name_text = name_text.replace("고기한접시 세트", "고기한접시")
     name_text = name_text.replace("고기한접시세트", "고기한접시")
     name_text = name_text.replace("(#)", "").replace("[#]", "").strip()
-    return [name for part in SPLIT_RE.split(name_text) if (name := part.strip())]
+    names = [name for part in SPLIT_RE.split(name_text) if (name := part.strip())]
+    if restaurant == GAP_STEW_RESTAURANT:
+        names = [RICE_INCLUDED_RE.sub("", name).strip() for name in names]
+    return [name for name in names if name]
 
 
-def parse_price_line(line: str) -> dict[str, Any] | None:
+def parse_price_line(line: str, restaurant: str) -> dict[str, Any] | None:
     match = PRICE_RE.match(line)
     if match is None:
         return None
 
-    names = normalize_names(match.group("name"))
+    names = normalize_names(match.group("name"), restaurant)
     if not names:
         return None
 
@@ -62,7 +67,7 @@ def parse_lines(lines: list[str]) -> dict[str, list[dict[str, Any]]]:
         if current_restaurant is None:
             continue
 
-        meal = parse_price_line(line)
+        meal = parse_price_line(line, current_restaurant)
         if meal is not None:
             meals_by_restaurant.setdefault(current_restaurant, []).append(meal)
 
