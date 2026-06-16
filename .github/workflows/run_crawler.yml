@@ -16,7 +16,7 @@ jobs:
     - name: 파이썬을 설치합니다
       uses: actions/setup-python@v5
       with:
-        python-version: '3.10'
+        python-version: '3.12'
 
     - name: 필요한 라이브러리를 설치합니다
       run: |
